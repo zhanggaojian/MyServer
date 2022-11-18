@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <mysql/mysql.h>
+#include <list>
 using namespace std;
 
 class SqlConnPool{
@@ -11,9 +12,9 @@ public:
     static SqlConnPool* GetInstance();
 
     //sql init
-    void SqlInit(string host,int port,string user,string pwd,string database,int connSize);
+    void SqlInit(string host,int port,string user,string pwd,string dbname,int connSize);
 
-    //获取数据库连接
+    //从数据库连接池中获取一个可用的数据库连接
     MYSQL *GetConn();
 
     //释放数据库连接
@@ -31,6 +32,8 @@ private:
     int m_maxConn;//最大连接数
     int m_curConn;//当前使用的连接数
     int m_FreeConn;//剩余的连接数
+
+    list<MYSQL *> connList; 
 public:
     string m_host;//主机地址
     string m_user;//数据库登录用户名
