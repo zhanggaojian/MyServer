@@ -4,6 +4,8 @@
 #include <iostream>
 #include <mysql/mysql.h>
 #include <list>
+#include <semaphore.h>
+#include <mutex>
 using namespace std;
 
 class SqlConnPool{
@@ -18,7 +20,7 @@ public:
     MYSQL *GetConn();
 
     //释放数据库连接
-    void FreeConn();
+    void FreeConn(MYSQL* conn);
 
     //获取空余连接的数量
     int GetFreeConnNum();
@@ -33,7 +35,9 @@ private:
     int m_curConn;//当前使用的连接数
     int m_FreeConn;//剩余的连接数
 
-    list<MYSQL *> connList; 
+    list<MYSQL *> connList;
+    sem_t m_sem;
+    std::mutex m_mtx;
 public:
     string m_host;//主机地址
     string m_user;//数据库登录用户名

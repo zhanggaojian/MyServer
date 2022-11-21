@@ -6,7 +6,7 @@ SqlConnPool::SqlConnPool(){
 }
 
 SqlConnPool::~SqlConnPool(){
-
+    ClosePool();
 }
 
 SqlConnPool* SqlConnPool::GetInstance(){
@@ -44,6 +44,7 @@ void SqlConnPool::SqlInit(string host,int port,string user,string pwd,string dbn
         ++m_FreeConn;
     }
     m_maxConn = m_FreeConn;
+    sem_init(&m_sem,0,m_maxConn);
 }
 
 MYSQL* SqlConnPool::GetConn(){
@@ -51,12 +52,47 @@ MYSQL* SqlConnPool::GetConn(){
 
     if(connList.size()==0) return nullptr;
 
-    rescon = connList.front();
-    connList.pop_front();
+    sem_wait(&m_sem);//首先需要连接池中有连接
 
-    --m_FreeConn;
-    ++m_curConn;
+    //其次需要取连接的时候，其他线程没操作
+    {
+        unique_lock<mutex> lock(m_mtx);
+
+        rescon = connList.front();
+        connList.pop_front();
+
+        --m_FreeConn;
+        ++m_curConn;
+    }
 
     return rescon;
+}
+
+void SqlConnPool::FreeConn(MYSQL* conn){
+    if(conn==nullptr) return;
+    unique_lock<mutex> lock(m_mtx);
+
+    connList.push_back(conn);
+    ++m_FreeConn;
+    --m_curConn;
+
+    sem_post(&m_sem);
+}
+
+int SqlConnPool::GetFreeConnNum(){
+    unique_lock<mutex> lock(m_mtx);
+    return connList.size();
+}
+
+void SqlConnPool::ClosePool(){
+    unique_lock<mutex> lock(m_mtx);
+    if(connList.size()>0){
+        for(auto x:connList){
+            mysql_close(x);
+        }
+        m_curConn=0;
+        m_FreeConn=0;
+        connList.clear();
+    }
 }
 
